@@ -1,28 +1,52 @@
-name: CI
+name: Java Maven Build, Test, and Deploy
 
 on:
-  push: 
-    branches: [cicd]
+  push:
+    branches: ["cicd"]
   pull_request:
-    branches: [cicd]
+    branches: ["cicd"]
+
 jobs:
-  build:
+  build_test:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Setup JDK 8
-      uses: actions/setup-java@v3
-      with:
-        java-version: '8'
-        distribution: 'temurin'
-        cache: maven
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
-    - name: Run Tests
-      run: mvn test
-    - name: Archive artifacts
-      uses: actions/upload-artifact@v2
-      with:
-          name: package
-          path: target/*.jar
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set Up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+
+      - name: Run tests with Maven
+        run: mvn test
+
+  deploy_to_jfrog:
+    needs: build_test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set Up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Configure JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v2
+        with:
+          version: '2.59.1'
+
+      - name: Configure JFrog Artifactory
+        run: jfrog rt config --url=https://hostnamedhak.jfrog.io/artifactory --user=${{ secrets.JFROG_USER }} --apikey=${{ secrets.JFROG_API_KEY }}
+          
+      - name: Deploy to JFrog Artifactory
+        run: mvn deploy --settings settings.xml
